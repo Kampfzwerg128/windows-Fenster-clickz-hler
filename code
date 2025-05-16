@@ -1,0 +1,85 @@
+import tkinter as tk
+from pynput import mouse
+import pygetwindow as gw
+import win32gui
+
+class MouseClickCounterApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Mausklick-Zähler")
+        self.root.configure(bg="black")
+
+        # Ziel-Fenster-Handle initialisieren
+        self.target_hwnd = None
+
+        # Dropdown-Menü zur Auswahl der aktiven Anwendung
+        self.window_list = gw.getAllTitles()
+        self.window_list = [w for w in self.window_list if w.strip()]  # Entfernt leere Titel
+        self.selected_window = tk.StringVar(value="Wähle ein Fenster")
+        self.dropdown = tk.OptionMenu(root, self.selected_window, *self.window_list, command=self.set_target_window)
+        self.dropdown.config(bg="black", fg="white", font=("Arial", 12))
+        self.dropdown.pack(pady=10)
+
+        # Labels zur Anzeige der Klickanzahlen
+        self.left_click_count = 0
+        self.right_click_count = 0
+        self.middle_click_count = 0
+        self.scroll_count = 0
+
+        self.left_label = tk.Label(root, text="Linksklicks: 0", font=("Arial", 16), fg="white", bg="black")
+        self.left_label.pack(pady=5)
+
+        self.right_label = tk.Label(root, text="Rechtsklicks: 0", font=("Arial", 16), fg="white", bg="black")
+        self.right_label.pack(pady=5)
+
+        self.middle_label = tk.Label(root, text="Mittelklicks: 0", font=("Arial", 16), fg="white", bg="black")
+        self.middle_label.pack(pady=5)
+
+        self.scroll_label = tk.Label(root, text="Scrolls: 0", font=("Arial", 16), fg="white", bg="black")
+        self.scroll_label.pack(pady=5)
+
+        # Startet den globalen Maus-Listener
+        self.listener = mouse.Listener(on_click=self.on_mouse_click, on_scroll=self.on_mouse_scroll)
+        self.listener.start()
+
+    def set_target_window(self, selected_window):
+        # Setzt das Ziel-Fenster basierend auf der Auswahl im Dropdown-Menü
+        self.target_hwnd = win32gui.FindWindow(None, selected_window)
+        print(f"Ziel-Fenster gesetzt: {selected_window}")
+
+    def is_mouse_in_target_window(self, x, y):
+        # Überprüft, ob die Maus im Ziel-Fenster ist
+        if self.target_hwnd:
+            rect = win32gui.GetWindowRect(self.target_hwnd)
+            left, top, right, bottom = rect
+            return left <= x <= right and top <= y <= bottom
+        return False
+
+    def on_mouse_click(self, x, y, button, pressed):
+        if pressed and self.is_mouse_in_target_window(x, y):
+            if button == mouse.Button.left:
+                self.left_click_count += 1
+                self.left_label.config(text=f"Linksklicks: {self.left_click_count}")
+            elif button == mouse.Button.right:
+                self.right_click_count += 1
+                self.right_label.config(text=f"Rechtsklicks: {self.right_click_count}")
+            elif button == mouse.Button.middle:
+                self.middle_click_count += 1
+                self.middle_label.config(text=f"Mittelklicks: {self.middle_click_count}")
+
+    def on_mouse_scroll(self, x, y, dx, dy):
+        if self.is_mouse_in_target_window(x, y):
+            self.scroll_count += 1
+            self.scroll_label.config(text=f"Scrolls: {self.scroll_count}")
+
+    def on_close(self):
+        # Stoppt den Listener, wenn das Fenster geschlossen wird
+        self.listener.stop()
+        self.root.destroy()
+
+# Hauptprogramm
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = MouseClickCounterApp(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_close)
+    root.mainloop()
